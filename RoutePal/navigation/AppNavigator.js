@@ -1,12 +1,11 @@
+import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import LoginScreen from '../screens/LoginScreen';
+import RegisterScreen from '../screens/RegisterScreen';
+import ProfileSetupScreen from '../screens/ProfileSetupScreen';
+import MainScreen from '../screens/MainScreen';
 
-import React from "react";
-import { createStackNavigator } from "@react-navigation/stack";
-import LoginScreen from "../screens/LoginScreen";
-import RegisterScreen from "../screens/RegisterScreen";
-import ProfileSetupScreen from "../screens/ProfileSetupScreen";
-import MainScreen from "../screens/MainScreen";
-
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 
 export default function AppNavigator({ isLoggedIn, isProfileComplete }) {
   return (
@@ -19,7 +18,7 @@ export default function AppNavigator({ isLoggedIn, isProfileComplete }) {
       ) : !isProfileComplete ? (
         <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
       ) : (
-        <Stack.Screen name="Main" component={MainScreen} />
+        <Stack.Screen name="MainScreen" component={MainScreen} />
       )}
     </Stack.Navigator>
   );
