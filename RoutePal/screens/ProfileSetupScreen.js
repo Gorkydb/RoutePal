@@ -1,131 +1,126 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, Modal } from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
-import API_BASE_URL from "../config";
-import { loginEventEmitter } from "../App";
+import React, { useState } from 'react';
+import {
+  View, Text, Button, Image, TouchableOpacity,
+  ScrollView, Alert, FlatList
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+
+const travelStyles = ['Solo', 'Grup', 'Macera', 'Lüks'];
+const travelPurposes = ['Keşif', 'Dinlenme', 'İş', 'Eğlence'];
+const hobbiesOptions = ['Müzik', 'Kamp', 'Fotoğrafçılık', 'Yürüyüş'];
 
 export default function ProfileSetupScreen() {
-  const [traits, setTraits] = useState("");
-  const [usagePurpose, setUsagePurpose] = useState("");
-  const [profileImage, setProfileImage] = useState(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedHobbies, setSelectedHobbies] = useState([]);
+  const [selectedTravelStyle, setSelectedTravelStyle] = useState('');
+  const [selectedPurpose, setSelectedPurpose] = useState('');
+  const [photoUri, setPhotoUri] = useState(null);
+  const [base64Photo, setBase64Photo] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleImagePick = async (source) => {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert("İzin Gerekli", "Fotoğraflara erişim izni verin.");
-        return;
-      }
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: true,
+      quality: 0.7,
+    });
 
-      const pickerResult =
-        source === "camera"
-          ? await ImagePicker.launchCameraAsync({ base64: true })
-          : await ImagePicker.launchImageLibraryAsync({ base64: true });
-
-      if (!pickerResult.canceled) {
-        const manipResult = await ImageManipulator.manipulateAsync(
-          pickerResult.assets[0].uri,
-          [{ resize: { width: 600 } }],
-          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-        );
-
-        const base64 = `data:image/jpeg;base64,${manipResult.base64}`;
-        if (base64.length > 2_000_000) {
-          Alert.alert("Hata", "Fotoğraf boyutu çok büyük.");
-          return;
-        }
-
-        setProfileImage(base64);
-      }
-    } catch (error) {
-      Alert.alert("Hata", "Fotoğraf yüklenemedi.");
-    } finally {
-      setModalVisible(false);
+    if (!result.canceled) {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 800 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      setPhotoUri(manipulated.uri);
+      setBase64Photo(manipulated.base64);
     }
   };
 
+  const toggleHobby = (hobby) => {
+    setSelectedHobbies((prev) =>
+      prev.includes(hobby) ? prev.filter((h) => h !== hobby) : [...prev, hobby]
+    );
+  };
+
   const handleSubmit = async () => {
-    if (!traits || !usagePurpose) {
-      Alert.alert("Eksik Alan", "Lütfen tüm bilgileri doldurun.");
-      return;
-    }
-
+    setLoading(true);
     try {
-      const token = await AsyncStorage.getItem("token");
-      await axios.post(
-        `${API_BASE_URL}/profile/update`,
-        {
-          traits,
-          usage_purpose: usagePurpose,
-          profile_picture: profileImage,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const token = await AsyncStorage.getItem('token');
+      const userId = await AsyncStorage.getItem('user_id');
 
-      loginEventEmitter.emit("loginSuccess");
+      const profileData = {
+        user_id: userId,
+        hobbies: selectedHobbies,
+        travel_style: selectedTravelStyle,
+        purpose: selectedPurpose,
+        photo: base64Photo,
+      };
+
+      const response = await axios.post('http://localhost:5001/profile/update', profileData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.status === 200) {
+        await AsyncStorage.setItem('profileComplete', 'true');
+        Alert.alert('Başarılı', 'Profiliniz kaydedildi.');
+      } else {
+        Alert.alert('Hata', 'Profil kaydedilemedi.');
+      }
     } catch (error) {
-      console.error("Profil güncellenemedi:", error);
-      Alert.alert("Hata", "Profil güncellenirken bir hata oluştu.");
+      console.error('Profil güncellenemedi:', error);
+      Alert.alert('Hata', 'Profil güncellenemedi.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Profil Bilgileri</Text>
+    <ScrollView contentContainerStyle={{ padding: 20 }}>
+      <Text>Hobiler</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        {hobbiesOptions.map((hobby) => (
+          <TouchableOpacity
+            key={hobby}
+            onPress={() => toggleHobby(hobby)}
+            style={{
+              margin: 5,
+              padding: 10,
+              backgroundColor: selectedHobbies.includes(hobby) ? 'skyblue' : 'lightgray',
+            }}>
+            <Text>{hobby}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      {profileImage && <Image source={{ uri: profileImage }} style={styles.image} />}
-      <TouchableOpacity style={styles.imageButton} onPress={() => setModalVisible(true)}>
-        <Text style={styles.imageButtonText}>Fotoğraf Seç</Text>
+      <Text>Seyahat Tarzı</Text>
+      {travelStyles.map((style) => (
+        <TouchableOpacity key={style} onPress={() => setSelectedTravelStyle(style)}>
+          <Text style={{
+            backgroundColor: selectedTravelStyle === style ? 'skyblue' : 'lightgray',
+            margin: 5, padding: 10
+          }}>{style}</Text>
+        </TouchableOpacity>
+      ))}
+
+      <Text>Seyahat Amacı</Text>
+      {travelPurposes.map((purpose) => (
+        <TouchableOpacity key={purpose} onPress={() => setSelectedPurpose(purpose)}>
+          <Text style={{
+            backgroundColor: selectedPurpose === purpose ? 'skyblue' : 'lightgray',
+            margin: 5, padding: 10
+          }}>{purpose}</Text>
+        </TouchableOpacity>
+      ))}
+
+      <TouchableOpacity onPress={pickImage} style={{ marginVertical: 10 }}>
+        <Text style={{ color: 'blue' }}>Fotoğraf Seç</Text>
       </TouchableOpacity>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Seyahat tarzın (örnek: Maceracı)"
-        value={traits}
-        onChangeText={setTraits}
-        placeholderTextColor="#aaa"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Seyahat amacın"
-        value={usagePurpose}
-        onChangeText={setUsagePurpose}
-        placeholderTextColor="#aaa"
-      />
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Kaydet ve Devam Et</Text>
-      </TouchableOpacity>
+      {photoUri && <Image source={{ uri: photoUri }} style={{ width: 200, height: 200 }} />}
 
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={styles.modal}>
-          <TouchableOpacity onPress={() => handleImagePick("camera")}>
-            <Text style={styles.modalText}>📷 Kamera</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleImagePick("gallery")}>
-            <Text style={styles.modalText}>🖼️ Galeri</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setModalVisible(false)}>
-            <Text style={[styles.modalText, { color: "red" }]}>İptal</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-    </View>
+      <Button title={loading ? 'Kaydediliyor...' : 'Profili Kaydet'} onPress={handleSubmit} disabled={loading} />
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1E1E1E", padding: 20, justifyContent: "center" },
-  title: { fontSize: 24, fontWeight: "bold", color: "#FFD700", marginBottom: 20, textAlign: "center" },
-  input: { backgroundColor: "#333", color: "#fff", padding: 10, borderRadius: 8, marginVertical: 10 },
-  image: { width: 100, height: 100, borderRadius: 50, alignSelf: "center", marginBottom: 10 },
-  imageButton: { backgroundColor: "#555", padding: 10, borderRadius: 8, alignItems: "center", marginBottom: 15 },
-  imageButtonText: { color: "#fff" },
-  submitButton: { backgroundColor: "#FF4500", padding: 15, borderRadius: 8, alignItems: "center" },
-  submitButtonText: { color: "#fff", fontWeight: "bold" },
-  modal: { backgroundColor: "#fff", padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20, position: "absolute", bottom: 0, width: "100%" },
-  modalText: { fontSize: 18, textAlign: "center", marginVertical: 10 },
-});

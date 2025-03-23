@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import AppNavigator from './navigation/AppNavigator';
 import { NavigationContainer } from '@react-navigation/native';
-import { navigationRef } from './navigationRef';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import AppNavigator from './navigation/AppNavigator';
+import { navigationRef } from './navigationRef';
 import { loginEventEmitter, logoutEventEmitter } from './constants/eventEmitters';
 
 export default function App() {

@@ -10,6 +10,7 @@ export default {
     icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
     sdkVersion: "52.0.0",
+    jsEngine: "jsc",
     platforms: ["ios", "android"],
     updates: {
       fallbackToCacheTimeout: 0

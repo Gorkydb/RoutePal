@@ -18,7 +18,7 @@ export default function AppNavigator({ isLoggedIn, isProfileComplete }) {
       ) : !isProfileComplete ? (
         <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
       ) : (
-        <Stack.Screen name="MainScreen" component={MainScreen} />
+        <Stack.Screen name="Main" component={MainScreen} />
       )}
     </Stack.Navigator>
   );
