@@ -9,7 +9,7 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
     
     # Veritabanı Bağlantısı
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "mysql+pymysql://root:sifre123@localhost/chatgpt_maps_db")
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "mysql+pymysql://root:sifre123@localhost/routepal_db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # API Anahtarları

@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppNavigator from './navigation/AppNavigator';
 import { navigationRef } from './navigationRef';
 import { loginEventEmitter, logoutEventEmitter } from './constants/eventEmitters';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -25,16 +26,18 @@ export default function App() {
     const logoutSub = logoutEventEmitter.addListener('logout', checkLoginStatus);
 
     return () => {
-      loginSub.remove();
-      logoutSub.remove();
+      loginSub?.remove?.();
+      logoutSub?.remove?.();
     };
   }, []);
 
   if (loading) return null;
 
   return (
-    <NavigationContainer ref={navigationRef}>
-      <AppNavigator isLoggedIn={isLoggedIn} isProfileComplete={isProfileComplete} />
-    </NavigationContainer>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <NavigationContainer ref={navigationRef}>
+        <AppNavigator isLoggedIn={isLoggedIn} isProfileComplete={isProfileComplete} />
+      </NavigationContainer>
+    </GestureHandlerRootView>
   );
 }

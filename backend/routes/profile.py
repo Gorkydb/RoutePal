@@ -1,87 +1,61 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models.user import User
+from models import db
 from models.profile import Profile
-from database import db
 
-profile_bp = Blueprint("profile", __name__)
+profile_bp = Blueprint('profile_bp', __name__)
 
-@profile_bp.route("/me", methods=["GET"])
+@profile_bp.route('/profile', methods=['POST'])
+@jwt_required()
+def create_or_update_profile():
+    try:
+        user_id = get_jwt_identity()
+        data = request.get_json()
+
+        profile = Profile.query.filter_by(user_id=user_id).first()
+
+        if not profile:
+            profile = Profile(user_id=user_id)
+            db.session.add(profile)
+
+        profile.photos = data.get('photos')
+        profile.travel_style = data.get('travelStyle')
+        profile.travel_purpose = data.get('travelPurpose')
+        profile.alcohol = data.get('alcohol')
+        profile.smoking = data.get('smoking')
+        profile.religion = data.get('religion')
+        profile.zodiac = data.get('zodiac')
+        profile.about = data.get('about')
+
+        db.session.commit()
+
+        return jsonify({'message': 'Profil başarıyla kaydedildi.'}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Bir hata oluştu.', 'details': str(e)}), 500
+
+
+@profile_bp.route('/profile/me', methods=['GET'])
 @jwt_required()
 def get_profile():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
+    try:
+        user_id = get_jwt_identity()
+        profile = Profile.query.filter_by(user_id=user_id).first()
 
-    if not user:
-        print("🚨 Kullanıcı bulunamadı.")
-        return jsonify({"error": "Kullanıcı bulunamadı!"}), 404
+        if not profile:
+            return jsonify({'error': 'Profil bulunamadı.'}), 404
 
-    profile = Profile.query.filter_by(user_id=user.id).first()
-
-    if not profile:
-        print("⚠️ Kullanıcının profili yok, boş profil döndürülüyor.")
         return jsonify({
-            "id": user.id,
-            "email": user.email,
-            "profile": {
-                "hobbies": [],
-                "traits": "",
-                "usage_purpose": "",
-                "profile_picture": None
-            }
+            'photos': profile.photos,
+            'travelStyle': profile.travel_style,
+            'travelPurpose': profile.travel_purpose,
+            'alcohol': profile.alcohol,
+            'smoking': profile.smoking,
+            'religion': profile.religion,
+            'zodiac': profile.zodiac,
+            'about': profile.about
         }), 200
 
-    return jsonify({
-        "id": user.id,
-        "email": user.email,
-        "profile": {
-            "hobbies": profile.hobbies if profile.hobbies else [],
-            "traits": profile.traits if profile.traits else "",
-            "usage_purpose": profile.usage_purpose if profile.usage_purpose else "",
-            "profile_picture": profile.profile_picture if profile.profile_picture else None
-        }
-    }), 200
-
-
-@profile_bp.route("/update", methods=["POST"])
-@jwt_required()
-def update_profile():
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-
-    if not user:
-        return jsonify({"error": "Kullanıcı bulunamadı!"}), 404
-
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "Eksik veri!"}), 422
-
-    hobbies = data.get("hobbies")
-    traits = data.get("traits")
-    usage_purpose = data.get("usage_purpose")
-    profile_picture = data.get("profile_picture")
-
-    if not (hobbies and traits and usage_purpose):
-        return jsonify({"error": "Tüm alanlar zorunludur!"}), 422
-
-    # Kullanıcının profili varsa güncelle, yoksa oluştur
-    profile = Profile.query.filter_by(user_id=user.id).first()
-
-    if profile:
-        profile.hobbies = hobbies
-        profile.traits = traits
-        profile.usage_purpose = usage_purpose
-        profile.profile_picture = profile_picture
-    else:
-        profile = Profile(
-            user_id=user.id,
-            hobbies=hobbies,
-            traits=traits,
-            usage_purpose=usage_purpose,
-            profile_picture=profile_picture
-        )
-        db.session.add(profile)
-
-    db.session.commit()
-    return jsonify({"message": "Profil başarıyla güncellendi."}), 200
+    except Exception as e:
+        return jsonify({'error': 'Bir hata oluştu.', 'details': str(e)}), 500

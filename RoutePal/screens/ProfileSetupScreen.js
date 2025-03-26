@@ -1,126 +1,178 @@
 import React, { useState } from 'react';
-import {
-  View, Text, Button, Image, TouchableOpacity,
-  ScrollView, Alert, FlatList
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Dimensions, FlatList } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
+import { BACKEND_URL } from '../config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const travelStyles = ['Solo', 'Grup', 'Macera', 'Lüks'];
-const travelPurposes = ['Keşif', 'Dinlenme', 'İş', 'Eğlence'];
-const hobbiesOptions = ['Müzik', 'Kamp', 'Fotoğrafçılık', 'Yürüyüş'];
+const MAX_PHOTOS = 6;
+const { width } = Dimensions.get('window');
 
-export default function ProfileSetupScreen() {
-  const [selectedHobbies, setSelectedHobbies] = useState([]);
-  const [selectedTravelStyle, setSelectedTravelStyle] = useState('');
-  const [selectedPurpose, setSelectedPurpose] = useState('');
-  const [photoUri, setPhotoUri] = useState(null);
-  const [base64Photo, setBase64Photo] = useState(null);
-  const [loading, setLoading] = useState(false);
+const slides = [0, 1, 2, 3];
 
-  const pickImage = async () => {
+const ProfileSetupScreen = () => {
+  const [photos, setPhotos] = useState([]);
+  const [travelStyle, setTravelStyle] = useState('');
+  const [travelPurpose, setTravelPurpose] = useState('');
+  const [socialPrefs, setSocialPrefs] = useState({
+    alcohol: '',
+    smoking: '',
+    religion: '',
+    zodiac: '',
+  });
+  const [about, setAbout] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const addPhoto = async () => {
+    if (photos.length >= MAX_PHOTOS) return;
+
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      base64: true,
+      mediaTypes: ImagePicker.MediaType.Images,
+      allowsEditing: true,
+      aspect: [4, 4],
       quality: 0.7,
+      base64: true,
     });
 
     if (!result.canceled) {
-      const manipulated = await ImageManipulator.manipulateAsync(
-        result.assets[0].uri,
-        [{ resize: { width: 800 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-      );
-      setPhotoUri(manipulated.uri);
-      setBase64Photo(manipulated.base64);
+      const newPhoto = result.assets[0];
+      setPhotos([...photos, newPhoto]);
     }
   };
 
-  const toggleHobby = (hobby) => {
-    setSelectedHobbies((prev) =>
-      prev.includes(hobby) ? prev.filter((h) => h !== hobby) : [...prev, hobby]
-    );
+  const handleSelect = (field, value) => {
+    if (field === 'travelStyle') setTravelStyle(value);
+    else if (field === 'travelPurpose') setTravelPurpose(value);
+    else setSocialPrefs({ ...socialPrefs, [field]: value });
   };
 
-  const handleSubmit = async () => {
-    setLoading(true);
+  const renderOptions = (label, field, options, selected) => (
+    <View style={{ marginBottom: 15 }}>
+      <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>{label}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        {options.map((opt) => (
+          <TouchableOpacity
+            key={opt}
+            onPress={() => handleSelect(field, opt)}
+            style={{
+              backgroundColor: selected === opt ? '#ff3366' : '#eee',
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 20,
+              margin: 4,
+            }}
+          >
+            <Text style={{ color: selected === opt ? '#fff' : '#000' }}>{opt}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  const handleSave = async () => {
+    const payload = {
+      photos,
+      travelStyle,
+      travelPurpose,
+      alcohol: socialPrefs.alcohol,
+      smoking: socialPrefs.smoking,
+      religion: socialPrefs.religion,
+      zodiac: socialPrefs.zodiac,
+      about,
+    };
+
     try {
       const token = await AsyncStorage.getItem('token');
-      const userId = await AsyncStorage.getItem('user_id');
-
-      const profileData = {
-        user_id: userId,
-        hobbies: selectedHobbies,
-        travel_style: selectedTravelStyle,
-        purpose: selectedPurpose,
-        photo: base64Photo,
-      };
-
-      const response = await axios.post('http://localhost:5001/profile/update', profileData, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await axios.post(`${BACKEND_URL}/profile`, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
+      console.log('Profil başarıyla kaydedildi', res.data);
+      alert('Profiliniz kaydedildi!');
+    } catch (err) {
+      console.error('Profil kaydedilemedi:', err);
+      alert('Bir hata oluştu.');
+    }
+  };
 
-      if (response.status === 200) {
-        await AsyncStorage.setItem('profileComplete', 'true');
-        Alert.alert('Başarılı', 'Profiliniz kaydedildi.');
-      } else {
-        Alert.alert('Hata', 'Profil kaydedilemedi.');
-      }
-    } catch (error) {
-      console.error('Profil güncellenemedi:', error);
-      Alert.alert('Hata', 'Profil güncellenemedi.');
-    } finally {
-      setLoading(false);
+  const renderSlide = ({ item }) => {
+    switch (item) {
+      case 0:
+        return (
+          <View style={{ width, padding: 20 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>Profil Fotoğrafları</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              {photos.map((p, i) => (
+                <Image key={i} source={{ uri: p.uri }} style={{ width: 80, height: 80, margin: 5, borderRadius: 10 }} />
+              ))}
+              {photos.length < MAX_PHOTOS && (
+                <TouchableOpacity onPress={addPhoto} style={{ width: 80, height: 80, margin: 5, justifyContent: 'center', alignItems: 'center', backgroundColor: '#eee', borderRadius: 10 }}>
+                  <MaterialIcons name="add-a-photo" size={24} color="#888" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        );
+
+      case 1:
+        return (
+          <View style={{ width, padding: 20 }}>
+            {renderOptions('Seyahat Tarzı', 'travelStyle', ['Lüks', 'Sırt Çantalı', 'Macera', 'Rahat'], travelStyle)}
+            {renderOptions('Seyahat Amacı', 'travelPurpose', ['Keşif', 'Dinlenme', 'Eğlence', 'Arkadaşlık'], travelPurpose)}
+          </View>
+        );
+
+      case 2:
+        return (
+          <View style={{ width, padding: 20 }}>
+            {renderOptions('Alkol Kullanımı', 'alcohol', ['Evet', 'Hayır', 'Sosyal İçici'], socialPrefs.alcohol)}
+            {renderOptions('Sigara Kullanımı', 'smoking', ['Evet', 'Hayır', 'Nadiren'], socialPrefs.smoking)}
+            {renderOptions('Dini İnanç', 'religion', ['Müslüman', 'Hristiyan', 'Musevi', 'Agnostik', 'Belirtmek istemiyorum'], socialPrefs.religion)}
+            {renderOptions('Burç', 'zodiac', ['Koç', 'Boğa', 'İkizler', 'Yengeç', 'Aslan', 'Başak', 'Terazi', 'Akrep', 'Yay', 'Oğlak', 'Kova', 'Balık'], socialPrefs.zodiac)}
+          </View>
+        );
+
+      case 3:
+        return (
+          <View style={{ width, padding: 20 }}>
+            <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>Kısa Biyografi</Text>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: '#ccc',
+                borderRadius: 8,
+                padding: 10,
+                marginTop: 5,
+                textAlignVertical: 'top',
+                height: 120,
+              }}
+              multiline
+              numberOfLines={4}
+              maxLength={300}
+              placeholder="Kendinizden kısaca bahsedin (maks. 300 karakter)"
+              value={about}
+              onChangeText={setAbout}
+            />
+            <TouchableOpacity onPress={handleSave} style={{ marginTop: 20, backgroundColor: '#ff3366', padding: 12, borderRadius: 8 }}>
+              <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>Kaydet</Text>
+            </TouchableOpacity>
+          </View>
+        );
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20 }}>
-      <Text>Hobiler</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-        {hobbiesOptions.map((hobby) => (
-          <TouchableOpacity
-            key={hobby}
-            onPress={() => toggleHobby(hobby)}
-            style={{
-              margin: 5,
-              padding: 10,
-              backgroundColor: selectedHobbies.includes(hobby) ? 'skyblue' : 'lightgray',
-            }}>
-            <Text>{hobby}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Text>Seyahat Tarzı</Text>
-      {travelStyles.map((style) => (
-        <TouchableOpacity key={style} onPress={() => setSelectedTravelStyle(style)}>
-          <Text style={{
-            backgroundColor: selectedTravelStyle === style ? 'skyblue' : 'lightgray',
-            margin: 5, padding: 10
-          }}>{style}</Text>
-        </TouchableOpacity>
-      ))}
-
-      <Text>Seyahat Amacı</Text>
-      {travelPurposes.map((purpose) => (
-        <TouchableOpacity key={purpose} onPress={() => setSelectedPurpose(purpose)}>
-          <Text style={{
-            backgroundColor: selectedPurpose === purpose ? 'skyblue' : 'lightgray',
-            margin: 5, padding: 10
-          }}>{purpose}</Text>
-        </TouchableOpacity>
-      ))}
-
-      <TouchableOpacity onPress={pickImage} style={{ marginVertical: 10 }}>
-        <Text style={{ color: 'blue' }}>Fotoğraf Seç</Text>
-      </TouchableOpacity>
-
-      {photoUri && <Image source={{ uri: photoUri }} style={{ width: 200, height: 200 }} />}
-
-      <Button title={loading ? 'Kaydediliyor...' : 'Profili Kaydet'} onPress={handleSubmit} disabled={loading} />
-    </ScrollView>
+    <FlatList
+      horizontal
+      pagingEnabled
+      showsHorizontalScrollIndicator={false}
+      data={slides}
+      renderItem={renderSlide}
+      keyExtractor={(item) => item.toString()}
+    />
   );
-}
+};
+
+export default ProfileSetupScreen;
