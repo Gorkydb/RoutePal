@@ -1,42 +1,41 @@
 from flask import Blueprint, request, jsonify
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token
-from models.user import User
-from database import db
+from models.user import db, User
 
 auth_bp = Blueprint('auth', __name__)
 
-@auth_bp.route("/register", methods=["POST"])
+@auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
-    email = data.get("email")
-    password = data.get("password")
+    email = data.get('email')
+    password = data.get('password')
 
     if not email or not password:
-        return jsonify({"error": "Eksik bilgi!"}), 400
+        return jsonify({'message': 'Email ve şifre gerekli.'}), 400
 
-    existing_user = User.query.filter_by(email=email).first()
-    if existing_user:
-        return jsonify({"error": "Bu e-posta adresi zaten kayıtlı."}), 409
+    if User.query.filter_by(email=email).first():
+        return jsonify({'message': 'Bu email ile kayıtlı bir kullanıcı zaten var.'}), 409
 
-    new_user = User(email=email)
-    new_user.set_password(password)  # ✅ Şifreyi hashliyoruz!
-
-    db.session.add(new_user)
+    hashed_password = generate_password_hash(password)
+    user = User(email=email)
+    user.set_password(password)
+    db.session.add(user)
     db.session.commit()
+    return jsonify({'message': 'Kayıt başarılı'}), 201
 
-    access_token = create_access_token(identity=str(new_user.id))
-    return jsonify({"message": "Kayıt başarılı!", "token": access_token}), 201
-
-@auth_bp.route("/login", methods=["POST"])
+@auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    email = data.get("email")
-    password = data.get("password")
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return jsonify({'message': 'Email ve şifre gerekli.'}), 400
 
     user = User.query.filter_by(email=email).first()
-
     if not user or not user.check_password(password):
-        return jsonify({"error": "E-posta veya şifre yanlış."}), 401
+        return jsonify({'message': 'Email veya şifre hatalı'}), 401
 
-    access_token = create_access_token(identity=str(user.id))
-    return jsonify({"message": "Giriş başarılı!", "token": access_token}), 200
+    token = create_access_token(identity=user.id)
+    return jsonify({'token': token}), 200

@@ -1,7 +1,6 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import LoginScreen from '../screens/LoginScreen';
-import RegisterScreen from '../screens/RegisterScreen';
+import AuthScreen from '../screens/AuthScreen';
 import ProfileSetupScreen from '../screens/ProfileSetupScreen';
 import MainScreen from '../screens/MainScreen';
 import TravelAssistantScreen from '../screens/TravelAssistantScreen';
@@ -15,11 +14,10 @@ export default function AppNavigator({ isLoggedIn, isProfileComplete }) {
     <Stack.Navigator
       screenOptions={{ headerShown: false }}
       initialRouteName={
-        !isLoggedIn ? "Login" : !isProfileComplete ? "ProfileSetup" : "Main"
+        !isLoggedIn ? "Auth" : !isProfileComplete ? "ProfileSetup" : "Main"
       }
     >
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="Auth" component={AuthScreen} />
       <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
       <Stack.Screen name="Main" component={MainScreen} />
       <Stack.Screen name="TravelAssistant" component={TravelAssistantScreen} />

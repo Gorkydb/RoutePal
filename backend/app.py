@@ -18,7 +18,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # **Veritabanı bağlantısını başlat**
+    # Veritabanı bağlantısını başlat
     db.init_app(app)
     bcrypt.init_app(app)
     migrate.init_app(app, db)
@@ -26,9 +26,9 @@ def create_app():
     jwt.init_app(app)
 
     # CORS yapılandırması
-    CORS(app, supports_credentials=True)
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
-    # **Blueprint'lerin yüklenmesi**
+    # Blueprint'lerin yüklenmesi
     with app.app_context():
         from models import user, profile, place
         db.create_all()
@@ -38,6 +38,7 @@ def create_app():
         from routes.maps import maps_bp
         from routes.profile import profile_bp
 
+        # URL prefix'leri düzgün tanımlandı
         app.register_blueprint(auth_bp, url_prefix='/auth')
         app.register_blueprint(recommendations_bp, url_prefix='/recommendations')
         app.register_blueprint(maps_bp, url_prefix='/maps')
