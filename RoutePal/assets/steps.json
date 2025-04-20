@@ -12,6 +12,7 @@
   {
     "key": "travelStyle",
     "question": "Seyahat tarzın nedir?",
+    "allowMultiple": true,
     "type": "option",
     "options": [
       "Maceracı 🌋",
@@ -28,6 +29,7 @@
   {
     "key": "travelPurpose",
     "question": "Seyahat amacın nedir?",
+    "allowMultiple": true,
     "type": "option",
     "options": [
       "Yeni yerler keşfetmek 🗺️",
