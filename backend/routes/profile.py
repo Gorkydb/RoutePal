@@ -1,39 +1,28 @@
-import json
-from datetime import datetime
 from flask import Blueprint, request, jsonify
-from models.profile import db, Profile
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from database import db
+from models.profile import Profile
 
-profile_bp = Blueprint('profile', __name__)
+profile_bp = Blueprint('profile_bp', __name__)
 
-@profile_bp.route('/profile', methods=['POST'])
-def create_or_update_profile():
-    try:
-        data = request.get_json()
-        user_id = data.get('user_id')  # Kimlik doğrulama sistemine göre değişebilir
+@profile_bp.route('', methods=['POST'])
+@jwt_required()
+def create_profile():
+    user_id = get_jwt_identity()
+    data = request.get_json()
 
-        profile = Profile.query.filter_by(user_id=user_id).first()
+    profile = Profile(
+        user_id=user_id,
+        travel_style=data.get('travelStyle'),
+        travel_purpose=data.get('travelPurpose'),
+        smoking=data.get('smoking'),
+        alcohol=data.get('alcohol'),
+        birth_date=data.get('birthDate'),
+        zodiac=data.get('zodiac'),
+        bio=data.get('bio'),
+        photo=data.get('photo')
+    )
+    db.session.add(profile)
+    db.session.commit()
 
-        if not profile:
-            profile = Profile(user_id=user_id)
-            db.session.add(profile)
-
-        profile.travel_style = data.get('travelStyle')
-        profile.travel_purpose = data.get('travelPurpose')
-        profile.bio = data.get('bio')
-        profile.smoker = data.get('smoking') == 'Evet'
-        profile.drink = data.get('drinking') == 'Evet'
-
-        birth_date_str = data.get('birthDate')
-        if birth_date_str:
-            profile.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
-
-        photos = data.get('photos', [])
-        if isinstance(photos, list):
-            profile.photos = json.dumps([photo.get('uri') for photo in photos])
-
-        db.session.commit()
-        return jsonify({'message': 'Profil başarıyla kaydedildi.'}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': 'Profil kaydedilirken bir hata oluştu.'}), 500
+    return jsonify({'message': 'Profile created successfully'}), 201

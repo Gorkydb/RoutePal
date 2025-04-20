@@ -1,327 +1,241 @@
-import React, { useState, useRef } from 'react';
-import { BlurView } from 'expo-blur';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, Alert, Animated, PanResponder } from 'react-native';
+// ProfileSetupScreen.js (tam hali - hook hatası giderildi ve stil kısmı dahil)
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Alert, Image, TextInput, ScrollView, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
-import api from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import steps from '../assets/steps.json';
+import axios from 'axios';
 
 const { width, height } = Dimensions.get('window');
 
-const steps = [
-  { key: 'travelStyle', question: 'Seyahat tarzını nasıl tanımlarsın?', options: ['Macera', 'Rahat', 'Kültürel'] },
-  { key: 'travelPurpose', question: 'Seyahat amacın nedir?', options: ['Keşfetmek', 'Dinlenmek', 'Arkadaşlık'] },
-  { key: 'smoking', question: 'Sigara kullanıyor musun?', options: ['Evet', 'Hayır', 'Bazen'] },
-  { key: 'alcohol', question: 'Alkol tercihin nedir?', options: ['Evet', 'Hayır', 'Bazen'] },
-  { key: 'birthDate', question: 'Doğum tarihin nedir?', input: true },
-  { key: 'zodiac', question: 'Burcun nedir?', options: ['Koç', 'Boğa', 'İkizler', 'Yengeç', 'Aslan', 'Başak', 'Terazi', 'Akrep', 'Yay', 'Oğlak', 'Kova', 'Balık'] },
-  { key: 'bio', question: 'Kendini kısaca tanıtır mısın?', input: true },
-  { key: 'photo', question: 'Kendini en iyi yansıtan fotoğrafı seç.' },
-  { key: 'complete', question: 'Profiliniz başarıyla oluşturuldu 🎉' }
-];
+const countryList = ['Türkiye', 'Almanya', 'Fransa', 'İngiltere', 'ABD', 'İtalya'];
+const schoolList = ['ODTÜ', 'Bilkent', 'Boğaziçi', 'Hacettepe', 'İTÜ', 'Koç Üniversitesi'];
 
 export default function ProfileSetupScreen({ navigation }) {
-  const confettiAnim = useRef(new Animated.Value(0)).current;
-  const [step, setStep] = useState(0);
+  const [stepIndex, setStepIndex] = useState(0);
   const [formData, setFormData] = useState({});
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  const [locationGranted, setLocationGranted] = useState(false);
+  const [schoolQuery, setSchoolQuery] = useState('');
+  const [filteredSchools, setFilteredSchools] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        setLocationGranted(true);
+        const loc = await Location.getCurrentPositionAsync({});
+        const geocode = await Location.reverseGeocodeAsync(loc.coords);
+        const { city, country } = geocode[0];
+        setFormData(prev => ({ ...prev, location: country, city }));
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    setFilteredSchools(
+      schoolList.filter((school) =>
+        school.toLowerCase().includes(schoolQuery.toLowerCase())
+      )
+    );
+  }, [schoolQuery]);
+
+  const currentStep = steps[stepIndex];
+
+  const handleNext = async () => {
+    if (stepIndex < steps.length - 1) {
+      setStepIndex(stepIndex + 1);
+    } else {
+      setIsSubmitting(true);
+      try {
+        const response = await axios.post('http://localhost:5001/profile', formData);
+        if (response.status === 200 || response.status === 201) {
+          await AsyncStorage.setItem('profileComplete', 'true');
+          Alert.alert('Başarılı', 'Profilin başarıyla oluşturuldu.');
+          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+        } else {
+          Alert.alert('Hata', 'Sunucudan beklenmeyen bir cevap alındı.');
+        }
+      } catch (error) {
+        console.error('Profil gönderim hatası:', error);
+        Alert.alert('Hata', 'Profil kaydedilemedi. Lütfen tekrar deneyin.');
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem('token');
+    await AsyncStorage.removeItem('profileComplete');
+    navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
+  };
 
   const handleSelect = (key, value) => {
     setFormData(prev => ({ ...prev, [key]: value }));
     handleNext();
   };
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7
-    });
-    if (!result.canceled) {
-      setFormData(prev => ({ ...prev, photo: result.assets[0].uri }));
-      handleNext();
-    }
-  };
-
-  const handleNext = async () => {
-    if (step === steps.length + 1) return;
-
-    if (step < steps.length - 1) {
-      Animated.spring(slideAnim, {
-        toValue: -1 * width * Math.min(step + 1, steps.length - 1),
-        useNativeDriver: true
-      }).start();
-      setStep(step + 1);
-    } else if (step === steps.length - 1) {
-      Animated.spring(slideAnim, {
-        toValue: -(step + 1) * width,
-        useNativeDriver: true
-      }).start();
-      setStep(step + 1);
-    } else if (step === steps.length) {
-      try {
-        const token = await AsyncStorage.getItem('token');
-        const response = await api.post('/profile', formData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (response.status === 200 || response.status === 201) {
-          Animated.sequence([
-            Animated.timing(confettiAnim, {
-              toValue: 1,
-              duration: 500,
-              useNativeDriver: true
-            }),
-            Animated.delay(800)
-          ]).start(() => {
-            Alert.alert('Tebrikler!', 'Profiliniz başarıyla oluşturuldu.', [
-              {
-                text: 'Devam Et',
-                onPress: () => {
-                  navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-                }
-              }
-            ]);
-          });
-        } else {
-          throw new Error('Sunucu beklenmeyen bir yanıt verdi');
-        }
-      } catch (err) {
-        console.log('Profil kaydedilemedi:', err);
-        Alert.alert('Hata', 'Profil kaydedilemedi');
-      }
-        Alert.alert('Tebrikler!', 'Profiliniz başarıyla oluşturuldu.', [
-          {
-            text: 'Devam Et',
-            onPress: async () => {
-              try {
-                const token = await AsyncStorage.getItem('token');
-                await api.post('/profile/create', formData, {
-                  headers: { Authorization: `Bearer ${token}` }
-                });
-                navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-              } catch (err) {
-                console.log('Profil kaydedilemedi:', err);
-                Alert.alert('Hata', 'Profil kaydedilemedi');
-              }
-            }
-          }
-        ]);
-    }
-  };
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 20,
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dx > 50 && step > 0) {
-          Animated.spring(slideAnim, {
-            toValue: -1 * width * Math.max(step - 1, 0),
-            useNativeDriver: true
-          }).start();
-          setStep(step - 1);
-        }
-      }
-    })
-  ).current;
-
-  const cardColors = ['#FFDEE9', '#B5FFFC', '#FFE7BA', '#C5E1A5', '#F3E5F5', '#B3E5FC', '#FFCDD2', '#E1F5FE'];
-
-const renderStep = (item, index) => {
-  if (item.key === 'complete') {
-    return (
-      <Animated.View key={index} style={[styles.card, {
-        width,
-        backgroundColor: cardColors[index % cardColors.length],
-        justifyContent: 'center'
-      }]}>
-        <Text style={styles.title}>{item.question}</Text>
-        <Text style={styles.optionText}>Uygulamayı kullanmaya hazırsınız!</Text>
-        <TouchableOpacity onPress={handleNext} style={[styles.optionBtn, styles.successButton]}>
-          <Text style={styles.successButtonText}>Devam Et</Text>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  }
-
-  return (
-    <Animated.View key={index} style={[styles.card, {
-      width,
-      backgroundColor: cardColors[index % cardColors.length]
-    }]}>
-      <Text style={styles.title}>{item.question}</Text>
-      {item.input ? (
-        <TouchableOpacity
-          style={styles.inputBox}
-          onPress={() => Alert.prompt('Bilgi Gir', item.question, text => handleSelect(item.key, text))}
-        >
-          <Text style={styles.inputText}>{formData[item.key] || 'Yanıtla'}</Text>
-        </TouchableOpacity>
-      ) : item.key === 'photo' ? (
-        <TouchableOpacity style={styles.photoBox} onPress={pickImage}>
-          {formData.photo ? (
-            <Image source={{ uri: formData.photo }} style={styles.image} />
-          ) : (
-            <Text style={styles.inputText}>Fotoğraf Seç</Text>
-          )}
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.optionsContainer}>
-          {item.options.map((opt, idx) => (
-            <TouchableOpacity
-              key={idx}
-              style={styles.optionBtn}
-              onPress={() => handleSelect(item.key, opt)}
-            >
-              <Text style={styles.optionText}>{opt}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </Animated.View>
-  );
-};
-
-
-return (
-    <View style={styles.root}>
-      <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
-      <View style={styles.wrapper}>
-        <View style={styles.progressBarWrapper}>
-          {steps.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.progressDot,
-                i === step && styles.progressDotActive
-              ]}
-            />
-          ))}
-        </View>
-        <Animated.View
-          style={{
-              width: width * steps.length,
-            flexDirection: 'row',
-            transform: [{ translateX: slideAnim }]
-          }}
-          {...panResponder.panHandlers}
-        >
-        {steps.map((item, index) => (
-        <View key={index} style={{ width }}>
-        {renderStep(item, index)}
-        </View>
-        ))}
-        </Animated.View>
-      </View>
+  const renderWelcome = () => (
+    <View style={styles.welcomeCard}>
+      <Text style={styles.title}>Sizi daha iyi tanımamıza yardımcı olun</Text>
+      <Text style={styles.subtitle}>Profilinizi oluşturarak RoutePal deneyimini kişiselleştirin.</Text>
+      <TouchableOpacity style={styles.nextButton} onPress={() => setStepIndex(1)}>
+        <Text style={styles.nextText}>Başla</Text>
+      </TouchableOpacity>
     </View>
   );
-  }
+
+  const renderSummary = () => (
+    <View style={{ width: '100%' }}>
+      {Object.entries(formData).map(([key, value]) => (
+        <View key={key} style={{ marginBottom: 8 }}>
+          <Text style={{ fontWeight: 'bold' }}>{key}:</Text>
+          <Text>{Array.isArray(value) ? value.join(', ') : value}</Text>
+        </View>
+      ))}
+      {isSubmitting ? (
+        <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 20 }} />
+      ) : (
+        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+          <Text style={styles.nextText}>Gönder ve Başla</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const renderInputGroup = () => (
+    <View style={{ width: '100%' }}>
+      <TextInput
+        placeholder="Ad"
+        style={styles.input}
+        onChangeText={(text) => setFormData(prev => ({ ...prev, ad: text }))}
+      />
+      <TextInput
+        placeholder="Soyad"
+        style={styles.input}
+        onChangeText={(text) => setFormData(prev => ({ ...prev, soyad: text }))}
+      />
+      <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+        <Text style={styles.nextText}>Devam Et</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderOptions = (step) => (
+    <View style={styles.optionsContainer}>
+      {step.options.map((option) => (
+        <TouchableOpacity
+          key={option}
+          style={styles.optionButton}
+          onPress={() => handleSelect(step.key, option)}
+        >
+          <Text style={styles.optionText}>{option}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+
+  const renderMultiOptions = (step) => {
+    const selected = formData[step.key] || [];
+    const toggleSelect = (option) => {
+      const newSelection = selected.includes(option)
+        ? selected.filter(item => item !== option)
+        : [...selected, option];
+      setFormData(prev => ({ ...prev, [step.key]: newSelection }));
+    };
+    return (
+      <View style={styles.optionsContainer}>
+        {step.options.map((option) => (
+          <TouchableOpacity
+            key={option}
+            style={[styles.optionButton, selected.includes(option) && styles.optionSelected]}
+            onPress={() => toggleSelect(option)}
+          >
+            <Text style={styles.optionText}>{option}</Text>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+          <Text style={styles.nextText}>Devam Et</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderPhotoPicker = () => (
+    <TouchableOpacity
+      style={styles.photoBox}
+      onPress={async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images });
+        if (!result.canceled) {
+          setFormData(prev => ({ ...prev, photo: result.assets[0].uri }));
+        }
+      }}
+    >
+      {formData.photo ? (
+        <Image source={{ uri: formData.photo }} style={styles.photoImage} />
+      ) : (
+        <Text>Fotoğraf Seç</Text>
+      )}
+    </TouchableOpacity>
+  );
+
+  const renderTextInput = (step) => (
+    <View style={{ width: '100%' }}>
+      <TextInput
+        placeholder={step.placeholder || ''}
+        style={styles.input}
+        onChangeText={(text) => setFormData(prev => ({ ...prev, [step.key]: text }))}
+      />
+      <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+        <Text style={styles.nextText}>Devam Et</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderCountrySelect = () => (
+    <View style={styles.optionsContainer}>
+      {countryList.map((country) => (
+        <TouchableOpacity key={country} style={styles.optionButton} onPress={() => handleSelect('country', country)}>
+          <Text style={styles.optionText}>{country}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+
+  const renderCitySelect = () => (
+    <TextInput
+      placeholder="Şehir"
+      style={styles.input}
+      onChangeText={(text) => setFormData(prev => ({ ...prev, city: text }))}
+    />
+  );
 
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    position: 'relative'
-  },
-  confetti: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#ffeaa7',
-    zIndex: 5,
-    opacity: 0.8
-  },
-  successButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center'
-  },
-  gradientBackground: {
-    flex: 1,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: -1
-  },
-  swipeHintWrapper: {
-    position: 'absolute',
-    top: height * 0.5 - 20,
-    left: 20,
-    right: 20,
-    zIndex: 2,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20
-  },
-  swipeHint: {
-    fontSize: 30,
-    opacity: 0.2
-  },
-
-  wrapper: {
-    flex: 1,
-    backgroundColor: '#fefefe',
-    justifyContent: 'center'
-  },
-  progressBarWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingTop: 40,
-    paddingBottom: 10,
-    gap: 8
-  },
-  progressDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#ccc'
-  },
-  progressDotActive: {
-    backgroundColor: '#007AFF',
-    transform: [{ scale: 1.4 }]
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fefefe'
-  },
-  card: {
-    paddingHorizontal: 30,
-    width: width,
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: height,
-    overflow: 'hidden',
-    borderRadius: 30,
-    backgroundColor: '#fff',
-    marginHorizontal: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 10
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    paddingHorizontal: 20
-  },
-  optionsContainer: { gap: 16 },
-  optionBtn: { backgroundColor: '#007AFF', padding: 16, borderRadius: 12, marginVertical: 6, minWidth: 200 },
-  successButton: { marginTop: 20, shadowColor: '#007AFF', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 10 },
-  optionText: { color: '#fff', fontSize: 16, textAlign: 'center' },
-  inputBox: { borderWidth: 1, borderColor: '#ccc', padding: 14, borderRadius: 10 },
-  inputText: { fontSize: 16 },
-  photoBox: { width: width * 0.7, height: width * 0.7, borderRadius: 14, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' },
-  image: { width: '100%', height: '100%', borderRadius: 14 },
-  
-});
+    const styles = StyleSheet.create({
+      container: { flex: 1, justifyContent: 'center' },
+      card: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        margin: 20,
+        borderRadius: 24,
+        backgroundColor: 'rgba(255,255,255,0.9)'
+      },
+      title: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+      subtitle: { fontSize: 16, marginBottom: 20, textAlign: 'center' },
+      optionsContainer: { width: '100%', marginBottom: 24 },
+      optionButton: { backgroundColor: '#007AFF', padding: 16, borderRadius: 16, marginBottom: 10 },
+      optionSelected: { backgroundColor: '#34C759' },
+      optionText: { color: '#fff', fontSize: 16, textAlign: 'center' },
+      nextButton: { backgroundColor: '#34C759', padding: 16, borderRadius: 20, marginTop: 20 },
+      nextText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+      photoBox: { width: 150, height: 150, borderRadius: 75, borderWidth: 2, borderColor: '#ccc', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+      photoImage: { width: '100%', height: '100%', borderRadius: 75 },
+      input: { width: '100%', padding: 14, borderWidth: 1, borderColor: '#ccc', borderRadius: 12, marginBottom: 16, fontSize: 16 },
+      logoutButton: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
+      welcomeCard: { alignItems: 'center', marginTop: 16 }
+    });
