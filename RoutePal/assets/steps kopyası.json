@@ -14,41 +14,88 @@
     "question": "Seyahat tarzın nedir?",
     "allowMultiple": true,
     "type": "option",
-    "options": ["Maceracı 🌋", "Rahat 🧘‍♂️", "Kültürel 🏛️", "Lüks ✨", "Doğa Aşığı 🌲", "Şehir Kaşifi 🏙️", "Plajcı 🏖️", "Planlı 🗂️", "Spontane ⚡"]
+    "options": [
+      "Maceracı 🌋",
+      "Rahat 🧘‍♂️",
+      "Kültürel 🏛️",
+      "Lüks ✨",
+      "Doğa Aşığı 🌲",
+      "Şehir Kaşifi 🏙️",
+      "Plajcı 🏖️",
+      "Planlı 🗂️",
+      "Spontane ⚡"
+    ]
   },
   {
     "key": "travelPurpose",
     "question": "Seyahat amacın nedir?",
     "allowMultiple": true,
     "type": "option",
-    "options": ["Yeni yerler keşfetmek 🗺️", "Arkadaşlık kurmak 👥", "Eğlenmek 🎉", "Dinlenmek 🛌", "Aşk yaşamak 💘", "Networking 👔"]
+    "options": [
+      "Yeni yerler keşfetmek 🗺️",
+      "Arkadaşlık kurmak 👥",
+      "Eğlenmek 🎉",
+      "Dinlenmek 🛌",
+      "Aşk yaşamak 💘",
+      "Networking 👔"
+    ]
   },
   {
     "key": "communication",
     "question": "Nasıl iletişim kurmayı tercih edersin?",
     "type": "option",
-    "options": ["Yazılı 📝", "Sesli 🗣️", "Görüntülü 📹"]
+    "options": [
+      "Yazılı 📝",
+      "Sesli 🗣️",
+      "Görüntülü 📹"
+    ]
   },
   {
     "key": "languages",
     "question": "Hangi dilleri konuşuyorsun?",
     "type": "multi",
-    "options": ["Türkçe", "İngilizce", "Almanca", "Fransızca", "Arapça", "İspanyolca"]
+    "options": [
+      "Türkçe",
+      "İngilizce",
+      "Almanca",
+      "Fransızca",
+      "Arapça",
+      "İspanyolca"
+    ]
   },
   {
     "key": "interests",
     "question": "İlgi alanların neler?",
     "type": "multi",
-    "options": ["Müzik 🎧", "Sanat 🎨", "Spor 🏋️", "Gece Hayatı 🌃", "Yemek 🍣", "Tarih 🏺", "Doğa Yürüyüşü 🥾", "Fotoğrafçılık 📷", "Kitaplar 📚", "Teknoloji 💻", "Yoga 🧘", "Alışveriş 🛍️"]
+    "options": [
+      "Müzik 🎧",
+      "Sanat 🎨",
+      "Spor 🏋️",
+      "Gece Hayatı 🌃",
+      "Yemek 🍣",
+      "Tarih 🏺",
+      "Doğa Yürüyüşü 🥾",
+      "Fotoğrafçılık 📷",
+      "Kitaplar 📚",
+      "Teknoloji 💻",
+      "Yoga 🧘",
+      "Alışveriş 🛍️"
+    ]
   },
   {
     "key": "educationLevel",
     "question": "Eğitim durumun nedir?",
     "type": "option",
-    "options": ["Lise", "Ön Lisans", "Lisans", "Yüksek Lisans", "Doktora"]
+    "options": [
+      "Lise",
+      "Ön Lisans",
+      "Lisans",
+      "Yüksek Lisans",
+      "Doktora"
+    ]
   },
   {
-    "key": "school",
+    "key": "schoolName",
     "question": "Okuduğun okulun adı nedir?",
     "type": "autocomplete",
     "condition": "formData.educationLevel === 'Lisans' || formData.educationLevel === 'Yüksek Lisans' || formData.educationLevel === 'Doktora'"
@@ -57,42 +104,74 @@
     "key": "jobStatus",
     "question": "Şu an çalışma durumun nedir?",
     "type": "option",
-    "options": ["Öğrenci", "Çalışıyor", "Freelancer", "İş arıyor", "Çalışmıyor"]
+    "options": [
+      "Öğrenci",
+      "Çalışıyor",
+      "Freelancer",
+      "İş arıyor",
+      "Çalışmıyor"
+    ]
   },
   {
     "key": "maritalStatus",
     "question": "Medeni durumun nedir?",
     "type": "option",
-    "options": ["Bekar", "İlişkisi var", "Evli", "Boşanmış"]
+    "options": [
+      "Bekar",
+      "İlişkisi var",
+      "Evli",
+      "Boşanmış"
+    ]
   },
   {
-    "key": "country_id",
+    "key": "location",
     "question": "Şu anda yaşadığın ülkeyi seç",
     "type": "countrySelect"
   },
   {
-    "key": "city_id",
+    "key": "city",
     "question": "Şehrin nedir?",
     "type": "citySelect",
-    "condition": "formData.country_id"
+    "condition": "formData.location"
   },
   {
     "key": "smoking",
     "question": "Sigara kullanıyor musun?",
     "type": "option",
-    "options": ["Evet 🚬", "Hayır 🚭", "Bazen 🔄"]
+    "options": [
+      "Evet 🚬",
+      "Hayır 🚭",
+      "Bazen 🔄"
+    ]
   },
   {
     "key": "alcohol",
     "question": "Alkol tercihin nedir?",
     "type": "option",
-    "options": ["Evet 🍷", "Hayır ❌", "Bazen 🔁"]
+    "options": [
+      "Evet 🍷",
+      "Hayır ❌",
+      "Bazen 🔁"
+    ]
   },
   {
     "key": "zodiac",
     "question": "Burcun nedir?",
     "type": "option",
-    "options": ["Koç", "Boğa", "İkizler", "Yengeç", "Aslan", "Başak", "Terazi", "Akrep", "Yay", "Oğlak", "Kova", "Balık"]
+    "options": [
+      "Koç",
+      "Boğa",
+      "İkizler",
+      "Yengeç",
+      "Aslan",
+      "Başak",
+      "Terazi",
+      "Akrep",
+      "Yay",
+      "Oğlak",
+      "Kova",
+      "Balık"
+    ]
   },
   {
     "key": "photo",
